@@ -1,0 +1,8 @@
+.idea
+__pycache__
+.vscode
+.spyproject
+output
+data
+pretrain
+CRF
