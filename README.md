@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="LINK_TO_PAPER"><img src="https://img.shields.io/badge/Paper-arXiv-red?style=flat-square&labelColor=444444" alt="Paper arXiv"></a>
-  <a href="LINK_TO_PROJECT_PAGE"><img src="https://img.shields.io/badge/Project-Page-1f6feb?style=flat-square&labelColor=444444" alt="Project Page"></a>
+  <a href=https://visinf.github.io/INSID3/><img src="https://img.shields.io/badge/Project-Page-1f6feb?style=flat-square&labelColor=444444" alt="Project Page"></a>
 </p>
 
 **[Claudia Cuttano](https://scholar.google.com/citations?user=W7lNKNsAAAAJ)<sup>1,2</sup> ·
