@@ -27,7 +27,7 @@
 
 INSID3 solves in-context segmentation entirely within a single frozen DINOv3 backbone:
 
-🚀 **Training-free:** no fine-tuning, no segmentation decoder, no pre-training supervision, no auxiliary models   
+🚀 **Training-free:** no fine-tuning, no segmentation decoder, no auxiliary models   
 🔍 **New insight:** identifies and removes a positional bias in DINOv3   
 📈 **State-of-the-art, smaller & faster:** outperforms both training-free and specialized methods while using a single backbone  
 🌍 **Generalizes broadly:** from object-level to part-level and personalized segmentation, across natural, medical, underwater, and aerial domains  

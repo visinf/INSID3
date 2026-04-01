@@ -84,7 +84,7 @@ Download COCO2017 train/val images:
  wget http://images.cocodataset.org/zips/train2017.zip
  wget http://images.cocodataset.org/zips/val2017.zip
  ```
-Download LVIS-92<sup>i</sup> extended mask annotations: [lvis.zip](https://drive.google.com/file/d/1itJC119ikrZyjHB9yienUPD0iqV12_9y/view?usp=sharing).
+Unzip and place under `data/LVIS/coco`. Download LVIS-92<sup>i</sup> extended mask annotations: [lvis.zip](https://drive.google.com/file/d/1itJC119ikrZyjHB9yienUPD0iqV12_9y/view?usp=sharing).
 Unzip and place the `.pkl` files under `data/LVIS/`.
 
 
@@ -94,7 +94,8 @@ Download COCO2017 train/val images (same as LVIS):
  wget http://images.cocodataset.org/zips/train2017.zip
  wget http://images.cocodataset.org/zips/val2017.zip
  ```
- Download PACO-Part extended mask annotations: [paco.zip](https://drive.google.com/file/d/1VEXgHlYmPVMTVYd8RkT6-l8GGq0G9vHX/view?usp=sharing).
+
+Unzip and place under `data/PACO-Part/coco`. Download PACO-Part extended mask annotations: [paco.zip](https://drive.google.com/file/d/1VEXgHlYmPVMTVYd8RkT6-l8GGq0G9vHX/view?usp=sharing).
 Unzip and place the `.pkl` files under `data/PACO-Part/paco/`.
 
 ### 🔩 Pascal-Part
