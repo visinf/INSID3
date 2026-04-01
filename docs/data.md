@@ -76,7 +76,7 @@ wget http://images.cocodataset.org/zips/val2014.zip
 ```
 
 Download train/val annotations: [train2014.zip](https://drive.google.com/file/d/1cwup51kcr4m7v9jO14ArpxKMA4O3-Uge/view?usp=sharing), [val2014.zip](https://drive.google.com/file/d/1PNw4U3T2MhzAEBWGGgceXvYU3cZ7mJL1/view?usp=sharing). Unzip and place both `train2014/` and `val2014/` under `data/COCO2014/annotations/`.
-Download [splits.zip](https://drive.google.com/file/d/1Y1r4yUX5xYiXbjbgvrTEkWc4r9kKUcCC/view?usp=sharing). Unzip and place `splits` under `data/COCO2014/`.
+Download [splits.zip](https://drive.google.com/file/d/1K1UxhUzpjCe1jtgpsEUyrvU8gAlH1ZMy/view?usp=sharing) (alternatively, you may download the `splits` folder from [Matcher](https://github.com/aim-uofa/Matcher/tree/main/datasets/COCO2014/splits)). Unzip it and place the `splits/` folder under `data/COCO2014/`.
 
 ### 🦉 LVIS-92<sup>i</sup>
 Download COCO2017 train/val images: 
@@ -149,10 +149,8 @@ Download the dataset:
 gdown --fuzzy https://drive.google.com/file/d/17PQ1iKCbaj2OjwBdCn_VBh09ntI4lxgL/view?usp=sharing -O iSAID_5i.zip
 unzip iSAID_5i.zip
 mv iSAID_patches iSAID
-gdown --fuzzy https://drive.google.com/file/d/1M0EC6MejLrr94QWkId9-iPWMoSFS9ex-/view?usp=sharing -O iSAID/splits.zip
-unzip iSAID/splits.zip -d iSAID
 ```
-Place `iSAID/` under `data/`.
+Download [splits.zip](https://drive.google.com/file/d/1RBmVHXGhEXak2XB4OeCzQj2yswOmuMB2/view?usp=sharing). Unzip and place it under `iSAID/`. Place `iSAID/` under `data/`. 
 
 ### 🎯 PerMIS
 
