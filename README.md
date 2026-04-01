@@ -9,7 +9,7 @@
 
 **[Claudia Cuttano](https://scholar.google.com/citations?user=W7lNKNsAAAAJ)<sup>1,2</sup> ·
 [Gabriele Trivigno](https://scholar.google.com/citations?user=JXf_iToAAAAJ)<sup>1</sup> ·
-[Christoph Reich](https://scholar.google.com/citations?user=0OYstzAAAAAJ&hl=de)<sup>2,3,5,6</sup> ·
+[Christoph Reich](https://christophreich1996.github.io)<sup>2,3,5,6</sup> ·
 [Daniel Cremers](https://scholar.google.com/citations?user=cXQciMEAAAAJ&hl=en)<sup>3,5,6</sup> ·
 [Carlo Masone](https://scholar.google.com/citations?user=cM3Iz_4AAAAJ)<sup>1</sup> ·
 [Stefan Roth](https://scholar.google.com/citations?user=0yDoR0AAAAAJ&hl=en)<sup>2,4,5</sup>**
@@ -27,10 +27,10 @@
 
 INSID3 solves in-context segmentation entirely within a single frozen DINOv3 backbone:
 
-🚀 **Training-free:** no fine-tuning, no segmentation decoder, no auxiliary models   
+🚀 **Training-free:** no fine-tuning, no segmentation decoder, no pre-training supervision, no auxiliary models   
 🔍 **New insight:** identifies and removes a positional bias in DINOv3   
 📈 **State-of-the-art, smaller & faster:** outperforms both training-free and specialized methods while using a single backbone  
-🌍 **Generalizes broadly:** from object-level to part-level and personalized segmentation, across natural, medical, underwater and aerial domains  
+🌍 **Generalizes broadly:** from object-level to part-level and personalized segmentation, across natural, medical, underwater, and aerial domains  
 
 <p align="center">
   <img src="assets/teaser.png">
