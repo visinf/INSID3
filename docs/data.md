@@ -66,98 +66,184 @@ INSID3/
 
 ```
 
+## Instructions
+
+Run all commands below from the `INSID3/data/` directory.  
+Some datasets require `gdown` for Google Drive downloads (`pip install gdown`). If you prepare the ISIC 2018 dataset, its preprocessing step also requires `pandas` (`pip install pandas`).
 
 ### 🥥 COCO-20<sup>i</sup>
 
 Download COCO2014 train/val images and annotations:
 ```
+mkdir -p COCO2014 && cd COCO2014
 wget http://images.cocodataset.org/zips/train2014.zip
 wget http://images.cocodataset.org/zips/val2014.zip
+unzip train2014.zip
+unzip val2014.zip
+rm -f *.zip
+
+mkdir -p annotations && cd annotations
+gdown --fuzzy https://drive.google.com/file/d/1cwup51kcr4m7v9jO14ArpxKMA4O3-Uge/view
+gdown --fuzzy https://drive.google.com/file/d/1PNw4U3T2MhzAEBWGGgceXvYU3cZ7mJL1/view
+unzip train2014.zip
+unzip val2014.zip
+rm -f *.zip
+cd ..
+
+gdown --fuzzy https://drive.google.com/file/d/1K1UxhUzpjCe1jtgpsEUyrvU8gAlH1ZMy/view
+unzip splits.zip
+rm -f splits.zip
+cd ..
 ```
 
-Download train/val annotations: [train2014.zip](https://drive.google.com/file/d/1cwup51kcr4m7v9jO14ArpxKMA4O3-Uge/view?usp=sharing), [val2014.zip](https://drive.google.com/file/d/1PNw4U3T2MhzAEBWGGgceXvYU3cZ7mJL1/view?usp=sharing). Unzip and place both `train2014/` and `val2014/` under `data/COCO2014/annotations/`.
-Download [splits.zip](https://drive.google.com/file/d/1K1UxhUzpjCe1jtgpsEUyrvU8gAlH1ZMy/view?usp=sharing) (alternatively, you may download the `splits` folder from [Matcher](https://github.com/aim-uofa/Matcher/tree/main/datasets/COCO2014/splits)). Unzip it and place the `splits/` folder under `data/COCO2014/`.
+As an alternative to downloading [splits.zip](https://drive.google.com/file/d/1K1UxhUzpjCe1jtgpsEUyrvU8gAlH1ZMy/view?usp=sharing), you can retrieve the `splits` folder directly from the original source: [Matcher](https://github.com/aim-uofa/Matcher/tree/main/datasets/COCO2014/splits).
 
 ### 🦉 LVIS-92<sup>i</sup>
-Download COCO2017 train/val images: 
+Download the COCO 2017 train/val images and the LVIS mask annotations:
  ```
- wget http://images.cocodataset.org/zips/train2017.zip
- wget http://images.cocodataset.org/zips/val2017.zip
+mkdir -p LVIS/coco && cd LVIS/coco
+
+# COCO 2017 images
+wget http://images.cocodataset.org/zips/train2017.zip
+wget http://images.cocodataset.org/zips/val2017.zip
+unzip train2017.zip
+unzip val2017.zip
+rm -f *.zip
+cd ..
+
+# LVIS mask annotations
+gdown --fuzzy https://drive.google.com/file/d/1itJC119ikrZyjHB9yienUPD0iqV12_9y/view
+unzip lvis.zip
+mv lvis/* .
+rm -rf lvis lvis.zip
+cd ..
  ```
-Unzip and place under `data/LVIS/coco`. Download LVIS-92<sup>i</sup> extended mask annotations: [lvis.zip](https://drive.google.com/file/d/1itJC119ikrZyjHB9yienUPD0iqV12_9y/view?usp=sharing).
-Unzip and place the `.pkl` files under `data/LVIS/`.
+
 
 
 ### 🧩 PACO-Part
-Download COCO2017 train/val images (same as LVIS): 
+PACO-Part uses the same COCO 2017 images as LVIS. The following commands create a symbolic link to `data/LVIS/coco/` and then download the PACO-Part mask annotations (if you have not prepared LVIS, make sure `data/LVIS/coco/` exists first; see the LVIS instructions above):
  ```
- wget http://images.cocodataset.org/zips/train2017.zip
- wget http://images.cocodataset.org/zips/val2017.zip
+mkdir -p PACO-Part && cd PACO-Part
+
+# Reuse the COCO 2017 images from LVIS
+ln -sf ../LVIS/coco .
+
+# PACO-Part mask annotations
+gdown --fuzzy https://drive.google.com/file/d/1VEXgHlYmPVMTVYd8RkT6-l8GGq0G9vHX/view
+unzip paco.zip
+rm -f paco.zip
+cd ..
  ```
 
-Unzip and place under `data/PACO-Part/coco`. Download PACO-Part extended mask annotations: [paco.zip](https://drive.google.com/file/d/1VEXgHlYmPVMTVYd8RkT6-l8GGq0G9vHX/view?usp=sharing).
-Unzip and place the `.pkl` files under `data/PACO-Part/paco/`.
+
 
 ### 🔩 Pascal-Part
- Download VOC2010 train/val images: 
+Download the VOC 2010 train/val images together with the Pascal-Part mask annotations:
+
  ```
- wget http://roozbehm.info/pascal-parts/trainval.tar.gz
- wget http://host.robots.ox.ac.uk/pascal/VOC/voc2010/VOCtrainval_03-May-2010.tar
+mkdir -p Pascal-Part && cd Pascal-Part
+
+# VOC 2010 images
+wget http://host.robots.ox.ac.uk/pascal/VOC/voc2010/VOCtrainval_03-May-2010.tar
+tar -xf VOCtrainval_03-May-2010.tar
+
+# Pascal-Part mask annotations
+gdown --fuzzy https://drive.google.com/file/d/1WaM0VM6I9b3u3v3w-QzFLJI8d3NRumTK/view
+unzip pascal.zip
+mv pascal/* VOCdevkit/VOC2010/
+rm -rf pascal.zip pascal VOCtrainval_03-May-2010.tar
+cd ..
  ```
- Download Pascal-Part extended mask annotations: [pascal.zip](https://drive.google.com/file/d/1WaM0VM6I9b3u3v3w-QzFLJI8d3NRumTK/view?usp=sharing).
-Unzip everything into `data/Pascal-Part/VOCdevkit/VOC2010/`.
 
 
 
 ### 🩺 ISIC 2018
-Download the dataset from the [ISIC Challenge 2018](https://challenge.isic-archive.com/data/#2018).
-Download the images and annotations:
+Download the ISIC 2018 training images and ground-truth masks, then preprocess the images following [DR-Adapter](https://github.com/Matt-Su/DR-Adapter) so that `ISIC2018_Task1-2_Training_Input/` is reorganized into the `1/`, `2/`, and `3/` subfolders:
+
 ```
+mkdir -p ISIC && cd ISIC
+
+# ISIC 2018 images and ground-truth masks
 wget https://isic-archive.s3.amazonaws.com/challenges/2018/ISIC2018_Task1-2_Training_Input.zip
-wget https://isic-archive.s3.amazonaws.com/challenges/2018/ISIC2018_Task1_Training_GroundTruth.zip 
+wget https://isic-archive.s3.amazonaws.com/challenges/2018/ISIC2018_Task1_Training_GroundTruth.zip
+unzip ISIC2018_Task1-2_Training_Input.zip
+unzip ISIC2018_Task1_Training_GroundTruth.zip
+
+# DR-Adapter preprocessing
+wget -O ISIC_Split.py https://raw.githubusercontent.com/Matt-Su/DR-Adapter/main/data_util/ISIC_Split.py
+mkdir -p isic
+wget -O isic/class_id.csv https://raw.githubusercontent.com/Matt-Su/DR-Adapter/main/data_util/isic/class_id.csv
+sed -i "s|dir = '../data/ISIC/ISIC/ISIC2018_Task1-2_Training_Input/'|dir = 'ISIC2018_Task1-2_Training_Input/'|" ISIC_Split.py
+python ISIC_Split.py
+
+rm -f *.zip ISIC_Split.py
+rm -rf isic
+rm -f ISIC2018_Task1-2_Training_Input/*.jpg
+cd ..
 ```
-Unzip everything into `data/ISIC/`. This should result in 2594 images and 2594 masks in total. Then, preprocess `ISIC2018_Task1-2_Training_Input` data following [DR-Adapter](https://github.com/Matt-Su/DR-Adapter), running their `./data_util/ISIC_Split.py` script. The script reorganizes the images into three categories: `ISIC2018_Task1-2_Training_Input/` will contain the `1/`, `2/`, and `3/` subfolders after preprocessing.
+This should result in 2594 images and 2594 masks in total.
 
 ### 🫁 Chest X-ray
-Download the dataset from the [Chest X-ray](https://www.kaggle.com/datasets/nikhilpandey360/chest-xray-masks-and-labels):
+Download the Chest X-ray dataset from [Chest X-ray](https://www.kaggle.com/datasets/nikhilpandey360/chest-xray-masks-and-labels) by running:
 
-```bash
-curl -L -o chest-xray-masks-and-labels.zip https://www.kaggle.com/api/v1/datasets/download/nikhilpandey360/chest-xray-masks-and-labels
-unzip chest-xray-masks-and-labels.zip
-mv 'Lung Segmentation' LungSegmentation
+
 ```
-Place `LungSegmentation/` under `data/`. This should result in 800 images (`CXR_png/`) and 704 masks (`masks/`).
+mkdir -p LungSegmentation && cd LungSegmentation
+curl -L -o chest-xray-masks-and-labels.zip \
+    https://www.kaggle.com/api/v1/datasets/download/nikhilpandey360/chest-xray-masks-and-labels
+unzip chest-xray-masks-and-labels.zip
+mv 'Lung Segmentation'/* .
+rm -rf 'Lung Segmentation' *.zip
+cd ..
+```
+This should result in 800 images (`CXR_png/`) and 704 masks (`masks/`).
 
 
 
 ### 🌊 SUIM
 
-We follow [ABCDFSS](https://github.com/Vision-Kek/ABCDFSS/blob/main/data/README.md):
+We prepare the SUIM dataset following [ABCDFSS](https://github.com/Vision-Kek/ABCDFSS/blob/main/data/README.md) by running:
 
-```bash
-curl -L -o suim-merged.zip https://www.kaggle.com/api/v1/datasets/download/heyoujue/suim-merged
-unzip suim-merged.zip
-mv suim_merged SUIM
+
+
 ```
-Place `SUIM/` under `data/`.
+mkdir -p SUIM && cd SUIM
+curl -L -o suim-merged.zip \
+    https://www.kaggle.com/api/v1/datasets/download/heyoujue/suim-merged
+unzip suim-merged.zip
+mv suim_merged/* .
+rm -rf suim_merged suim-merged.zip
+cd ..
+```
+
 This should result in 1635 images and 1635 masks in total.
 
 
 ### 🌍 iSAID
-Download the dataset:
+Download the iSAID dataset and splits by running:
 
-```bash
+
+```
+mkdir -p iSAID && cd iSAID
 gdown --fuzzy https://drive.google.com/file/d/17PQ1iKCbaj2OjwBdCn_VBh09ntI4lxgL/view?usp=sharing -O iSAID_5i.zip
 unzip iSAID_5i.zip
-mv iSAID_patches iSAID
+mv iSAID_patches/* .
+
+# Split files
+gdown --fuzzy https://drive.google.com/file/d/1RBmVHXGhEXak2XB4OeCzQj2yswOmuMB2/view
+unzip splits.zip
+rm -rf *.zip iSAID_patches
+cd ..
 ```
-Download [splits.zip](https://drive.google.com/file/d/1RBmVHXGhEXak2XB4OeCzQj2yswOmuMB2/view?usp=sharing). Unzip and place it under `iSAID/`. Place `iSAID/` under `data/`. 
+ 
 
 ### 🎯 PerMIS
 
 The PerMIS dataset is derived from the [BURST dataset](https://github.com/Ali2500/BURST-benchmark). Download the required BURST data from the official repository:
 
 ```
+mkdir -p PerMIRS && cd PerMIRS
 wget "https://motchallenge.net/data/1-TAO_TRAIN.zip" 
 wget "https://motchallenge.net/data/2-TAO_VAL.zip" 
 wget "https://motchallenge.net/data/3-TAO_TEST.zip" 
