@@ -3,17 +3,16 @@ import os
 import pickle
 
 from torch.utils.data import Dataset
-import torch.nn.functional as F
 import torch
 import PIL.Image as Image
 import numpy as np
-from utils.data import polygons_to_bitmask, build_transform
+from utils.data import polygons_to_bitmask
 import pycocotools.mask as mask_util
 from os.path import join
 
 
 class DatasetPACOPart(Dataset):
-    def __init__(self, datapath: str, fold: int, transform, shot: int, box_crop: bool = True):
+    def __init__(self, datapath: str, fold: int, shot: int, box_crop: bool = True):
         self.fold = fold
         self.nfolds = 4
         self.nclass = 448
@@ -22,7 +21,6 @@ class DatasetPACOPart(Dataset):
         self.img_path =  join(datapath, 'PACO-Part', 'coco')
         self.anno_path = join(datapath, 'PACO-Part', 'paco')
 
-        self.transform = transform
         self.box_crop = box_crop
 
         self.class_ids_ori, self.cid2img, self.img2anno = self.build_img_metadata_classwise()
@@ -45,17 +43,8 @@ class DatasetPACOPart(Dataset):
             if 0 in tgt_mask.shape:
                 ok = False
             
-        tgt_img = self.transform(tgt_img)
-        tgt_mask = tgt_mask.float()
-        tgt_mask = F.interpolate(tgt_mask.unsqueeze(0).unsqueeze(0).float(), tgt_img.size()[-2:], mode='nearest').squeeze()
-
-        ref_imgs = torch.stack([self.transform(ref_img) for ref_img in ref_imgs])
-        for midx, smask in enumerate(ref_masks):
-            ref_masks[midx] = F.interpolate(smask.unsqueeze(0).unsqueeze(0).float(), ref_imgs.size()[-2:], mode='nearest').squeeze()
-        ref_masks = torch.stack(ref_masks)
-
         batch = {'tgt_img': tgt_img,
-                 'tgt_mask': tgt_mask,
+                 'tgt_mask': tgt_mask.float(),
                  'ref_imgs': ref_imgs,
                  'ref_masks': ref_masks,
                  'class_id': torch.tensor(self.class_ids_c[class_sample])
@@ -227,7 +216,5 @@ class DatasetPACOPart(Dataset):
     
 
 def build(args) -> DatasetPACOPart:
-    transform = build_transform(args.image_size)
-    dataset = DatasetPACOPart(datapath=args.data_root, fold=args.fold, transform=transform,
-                 shot=args.shots)
+    dataset = DatasetPACOPart(datapath=args.data_root, fold=args.fold, shot=args.shots)
     return dataset

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -28,6 +26,7 @@ class INSID3(nn.Module):
         tau: float = 0.6,
         merge_threshold: float = 0.2,
         mask_refiner: str = "bilinear",
+        resize_to_orig_size: bool = True,
         device: str = "cuda",
     ):
         super().__init__()
@@ -37,6 +36,7 @@ class INSID3(nn.Module):
         self.tau = tau
         self.merge_threshold = merge_threshold
         self.mask_refiner = mask_refiner
+        self.resize_to_orig_size = resize_to_orig_size
 
         self.positional_basis = self._build_positional_basis(device)
 
@@ -47,23 +47,20 @@ class INSID3(nn.Module):
         self._ref_images = None
         self._ref_masks = None
         self._tgt_image = None
+        self._orig_tgt_size = None
 
-    def set_reference(self, image: str | 'Image.Image' | torch.Tensor, mask: str | 'Image.Image' | torch.Tensor) -> None:
-        """Set reference image and mask from file paths, PIL Images, or tensors.
+    def set_reference(self, image: str | 'Image.Image', mask: str | 'Image.Image' | torch.Tensor) -> None:
+        """Set reference image and mask from file paths or PIL Images.
 
         Args:
-            image: path (str), PIL Image, or torch.Tensor.
+            image: path (str) or PIL Image.
             mask:  path (str), PIL Image, or torch.Tensor (binary / grayscale).
         """
         import numpy as np
         # Handle image
-        if isinstance(image, torch.Tensor):
-            img_tensor = image.unsqueeze(0) if image.ndim == 3 else image  # (C,H,W) or (1,C,H,W)
-            img_tensor = img_tensor.to(self.positional_basis.device)
-        else:
-            if isinstance(image, str):
-                image = Image.open(image).convert('RGB')
-            img_tensor = self._transform(image).unsqueeze(0).to(self.positional_basis.device)
+        if isinstance(image, str):
+            image = Image.open(image).convert('RGB')
+        img_tensor = self._transform(image).unsqueeze(0).to(self.positional_basis.device)
         # Handle mask
         if isinstance(mask, torch.Tensor):
             mask_tensor = mask.unsqueeze(0) if mask.ndim == 2 else mask  # (H,W) or (1,H,W)
@@ -76,6 +73,11 @@ class INSID3(nn.Module):
             mask_tensor = torch.tensor(
                 np.array(mask) > 0, dtype=torch.bool
             ).unsqueeze(0).to(self.positional_basis.device)
+        # Resize mask to model resolution
+        mask_tensor = F.interpolate(
+            mask_tensor.unsqueeze(0).float(),
+            size=(self.image_size, self.image_size), mode='nearest',
+        ).squeeze(0) > 0.5
         if self._ref_images is None:
             self._ref_images = img_tensor
             self._ref_masks = mask_tensor
@@ -83,31 +85,29 @@ class INSID3(nn.Module):
             self._ref_images = torch.cat([self._ref_images, img_tensor], dim=0)
             self._ref_masks = torch.cat([self._ref_masks, mask_tensor], dim=0)
 
-    def set_target(self, image: str | 'Image.Image' | torch.Tensor) -> None:
-        """Set target image from a file path, PIL Image, or tensor.
+    def set_target(self, image: str | 'Image.Image') -> None:
+        """Set target image from a file path or PIL Image.
 
         Args:
-            image: path (str), PIL Image, or torch.Tensor.
+            image: path (str) or PIL Image.
         """
-        
-        if isinstance(image, torch.Tensor):
-            img_tensor = image.to(self.positional_basis.device)
-        else:
-            if isinstance(image, str):
-                image = Image.open(image).convert('RGB')
-            img_tensor = self._transform(image).to(self.positional_basis.device)
+        if isinstance(image, str):
+            image = Image.open(image).convert('RGB')
+        self._orig_tgt_size = (image.height, image.width)
+        img_tensor = self._transform(image).to(self.positional_basis.device)
         self._tgt_image = img_tensor
 
     def segment(self) -> torch.Tensor:
         """Run prediction using previously set reference(s) and target.
 
         Returns:
-            pred_mask: (H, W) boolean mask at input resolution.
+            pred_mask: (H, W) boolean mask at original target resolution.
         """
         pred = self.predict(self._ref_images, self._ref_masks, self._tgt_image)
         self._ref_images = None
         self._ref_masks = None
         self._tgt_image = None
+        self._orig_tgt_size = None
         return pred
 
 
@@ -316,9 +316,12 @@ class INSID3(nn.Module):
     # ──────── Mask finalization ────────
 
     def _finalize_mask(self, mask: torch.Tensor, tgt_image: torch.Tensor) -> torch.Tensor:
-        """Upsample feature-resolution mask to input resolution, optionally with CRF refinement."""
+        """Upsample feature-resolution mask, optionally with CRF refinement."""
         H, W = tgt_image.shape[-2:]
         up = upsample_mask(mask, H, W)
         if self.mask_refiner == 'crf':
             up = crf_refine(self._crf, self._crf_band_px, self._crf_p_core, tgt_image, up)
+        # Resize to original target resolution
+        if self.resize_to_orig_size:
+            up = upsample_mask(up, self._orig_tgt_size[0], self._orig_tgt_size[1])
         return up

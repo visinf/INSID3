@@ -21,7 +21,7 @@
 <sup>5</sup> ELIZA &nbsp;&nbsp; 
 <sup>6</sup> MCML  
 
-✨ **CVPR 2026** ✨
+✨ **CVPR 2026 ORAL** ✨
 
 </div>
 
@@ -100,22 +100,37 @@ By default, we use the Large model (```dinov3_vitl16_pretrain_lvd1689m-8aa4cbdd.
 
 ## 📍 Minimal Usage
 
-Here is a minimal example to segment a target image given a reference image and its mask:
+Here is a minimal example to segment a target image given a reference image and its mask. 
 
 ```python
 from models import build_insid3
+from utils.visualization import visualize_prediction
+
+ref_image_path, ref_mask_path = "assets/ref_cat_image.jpg", "assets/ref_cat_mask.png"
+target_image_path = "assets/target_cat_image.jpg"
+output_path = "target_cat_pred.png"
 
 # Build model
 model = build_insid3()
 
 # Set reference and target
-model.set_reference("path/to/ref_image.png", "path/to/ref_mask.png")
-model.set_target("path/to/tgt_image.png")
+model.set_reference(ref_image_path, ref_mask_path)
+model.set_target(target_image_path)
 
 # Predict
-pred_mask = model.segment()  # (1024, 1024) bool
+pred_mask = model.segment() 
+
+# Save visualization
+visualize_prediction(
+  ref_image_path,
+  ref_mask_path,
+  target_image_path,
+  pred_mask,
+  output_path,
+)
 ```
 
+To refine the predicted mask with CRF, initialize the model with: `model = build_insid3(mask_refiner="crf")`.
 
 ## 📦 Data
 

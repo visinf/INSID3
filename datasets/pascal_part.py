@@ -2,21 +2,18 @@
 import os
 from os.path import join
 from torch.utils.data import Dataset
-import torch.nn.functional as F
 import torch
 import PIL.Image as Image
 import numpy as np
 import json
 import pycocotools.mask as mask_util
-from utils.data import build_transform
 
 
 class DatasetPASCALPart(Dataset):
-    def __init__(self, datapath: str, fold: int, transform, shot: int, box_crop: bool = True):
+    def __init__(self, datapath: str, fold: int, shot: int, box_crop: bool = True):
         self.fold = fold
         self.benchmark = 'pascal_part'
         self.shot = shot
-        self.transform = transform
         self.box_crop = box_crop
 
         self.json_file = os.path.join(datapath, 'Pascal-Part/VOCdevkit/VOC2010/all_obj_part_to_image.json')
@@ -62,14 +59,8 @@ class DatasetPASCALPart(Dataset):
         idx %= len(self.class_ids)
         tgt_img, tgt_mask, ref_imgs, ref_masks, class_sample = self.sample_episode(idx)
 
-        tgt_img = self.transform(tgt_img)
         tgt_mask = torch.from_numpy(tgt_mask).float()
-        tgt_mask = F.interpolate(tgt_mask.unsqueeze(0).unsqueeze(0).float(), tgt_img.size()[-2:], mode='nearest').squeeze()
-
-        ref_imgs = torch.stack([self.transform(r) for r in ref_imgs])
-        for midx, smask in enumerate(ref_masks):
-            ref_masks[midx] = F.interpolate(torch.from_numpy(smask).unsqueeze(0).unsqueeze(0).float(), ref_imgs.size()[-2:], mode='nearest').squeeze()
-        ref_masks = torch.stack(ref_masks)
+        ref_masks = [torch.from_numpy(smask).float() for smask in ref_masks]
 
         batch = {
             'tgt_img': tgt_img,
@@ -171,7 +162,5 @@ class DatasetPASCALPart(Dataset):
 
 
 def build(args) -> DatasetPASCALPart:
-    transform = build_transform(args.image_size)
-    dataset = DatasetPASCALPart(datapath=args.data_root, fold=args.fold, transform=transform,
-                 shot=args.shots)
+    dataset = DatasetPASCALPart(datapath=args.data_root, fold=args.fold, shot=args.shots)
     return dataset

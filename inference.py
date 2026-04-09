@@ -10,6 +10,7 @@ from os.path import join
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -51,32 +52,37 @@ def main(args: argparse.Namespace) -> float:
 def evaluate(args: argparse.Namespace, model: torch.nn.Module, log_file: str) -> float:
     # ──────── Dataset and loader setup ────────
     ds = build_dataset(args.dataset, args=args)
-    loader = DataLoader(ds, batch_size=1, shuffle=False, num_workers=args.num_workers)
+    loader = DataLoader(ds, batch_size=1, shuffle=False, num_workers=args.num_workers,
+                        collate_fn=lambda x: x[0])
     meter = AverageMeter(args.dataset, ds.class_ids)
 
     # ──────── Evaluation loop ────────
-
     pbar = tqdm(loader, ncols=80)
     for idx, batch in enumerate(pbar):
 
-        ref_imgs = batch['ref_imgs'][0]  # (S, C, H, W)
-        ref_masks = batch['ref_masks'][0]  # (S, H, W)
-        tgt_img = batch['tgt_img'][0]
-        tgt_mask = batch['tgt_mask'][0]
+        ref_imgs = batch['ref_imgs']    # list of PIL Images
+        ref_masks = batch['ref_masks']  # list of tensors
+        tgt_img = batch['tgt_img']      # PIL Image
+        tgt_mask = batch['tgt_mask']    # tensor
 
         # Set all references
         model._ref_images = None  # Ensure reset
         model._ref_masks = None
-        for i in range(ref_imgs.shape[0]):
+        for i in range(len(ref_imgs)):
             model.set_reference(ref_imgs[i], ref_masks[i])
         # Set target
         model.set_target(tgt_img)
         # Segment
         pred_mask = model.segment()
 
+        tgt_mask = F.interpolate(
+            tgt_mask.unsqueeze(0).unsqueeze(0).float(),
+            size=pred_mask.shape, mode='nearest',
+        ).squeeze(0).squeeze(0) > 0.5
+
         area_inter, area_union = Evaluator.classify_prediction(
             pred_mask, tgt_mask,
-            tgt_ignore_idx=batch.get('tgt_ignore_idx', [None])[0],
+            tgt_ignore_idx=batch.get('tgt_ignore_idx'),
         )
         meter.update(area_inter, area_union, batch['class_id'].cuda())
 

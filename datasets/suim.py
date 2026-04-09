@@ -5,15 +5,13 @@ import os
 import glob
 
 from torch.utils.data import Dataset
-import torch.nn.functional as F
 import torch
 import PIL.Image as Image
 import numpy as np
-from utils.data import build_transform
 
 
 class DatasetSUIM(Dataset):
-    def __init__(self, datapath: str, transform, shot: int):
+    def __init__(self, datapath: str, shot: int):
         self.benchmark = 'suim'
         self.shot = shot
 
@@ -26,8 +24,6 @@ class DatasetSUIM(Dataset):
         self.class_ids = range(len(self.categories))
         self.img_metadata_classwise, self.num_images = self.build_img_metadata_classwise()
 
-        self.transform = transform
-
     def __len__(self) -> int:
         return self.num_images
 
@@ -35,19 +31,8 @@ class DatasetSUIM(Dataset):
         tgt_name, ref_names, class_sample = self.sample_episode(idx)
         tgt_img, tgt_mask, ref_imgs, ref_masks = self.load_frame(tgt_name, ref_names)
 
-        tgt_img = self.transform(tgt_img)
-        tgt_mask = F.interpolate(tgt_mask.unsqueeze(0).unsqueeze(0).float(), tgt_img.size()[-2:], mode='nearest').squeeze()
-
-        ref_imgs = torch.stack([self.transform(ref_img) for ref_img in ref_imgs])
-
-        ref_masks_tmp = []
-        for smask in ref_masks:
-            smask = F.interpolate(smask.unsqueeze(0).unsqueeze(0).float(), ref_imgs.size()[-2:], mode='nearest').squeeze()
-            ref_masks_tmp.append(smask)
-        ref_masks = torch.stack(ref_masks_tmp)
-
         batch = {'tgt_img': tgt_img,
-                 'tgt_mask': tgt_mask,
+                 'tgt_mask': tgt_mask.float(),
                  'ref_imgs': ref_imgs,
                  'ref_masks': ref_masks,
                  'class_id': torch.tensor(class_sample)}
@@ -105,7 +90,6 @@ class DatasetSUIM(Dataset):
 
 
 def build(args) -> DatasetSUIM:
-    transform = build_transform(args.image_size)
     dataset = DatasetSUIM(datapath=os.path.join(args.data_root, 'SUIM'),
-                          transform=transform, shot=args.shots)
+                          shot=args.shots)
     return dataset

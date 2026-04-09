@@ -5,15 +5,13 @@ import os
 import glob
 
 from torch.utils.data import Dataset
-import torch.nn.functional as F
 import torch
 import PIL.Image as Image
 import numpy as np
-from utils.data import build_transform
 
 
 class DatasetISIC(Dataset):
-    def __init__(self, datapath: str, transform, shot: int, num: int = 600):
+    def __init__(self, datapath: str, shot: int, num: int = 600):
         self.benchmark = 'isic'
         self.shot = shot
         self.num = num
@@ -22,7 +20,6 @@ class DatasetISIC(Dataset):
         self.base_path = os.path.join(datapath, 'ISIC')
         self.img_path = os.path.join(self.base_path, 'ISIC2018_Task1-2_Training_Input')
         self.ann_path = os.path.join(self.base_path, 'ISIC2018_Task1_Training_GroundTruth')
-        self.transform = transform
 
         self.class_ids = range(0, 3)
         self.img_metadata_classwise = self.build_img_metadata_classwise()       
@@ -34,17 +31,9 @@ class DatasetISIC(Dataset):
         tgt_name, ref_names, class_sample = self.sample_episode(idx)
 
         tgt_img, tgt_mask, ref_imgs, ref_masks = self.load_frame(tgt_name, ref_names)
-        tgt_img = self.transform(tgt_img)
-        tgt_mask = F.interpolate(tgt_mask.unsqueeze(0).unsqueeze(0).float(), tgt_img.size()[-2:], mode='nearest').squeeze()
-        ref_imgs = torch.stack([self.transform(ref_img) for ref_img in ref_imgs])
-        ref_masks_tmp = []
-        for smask in ref_masks:
-            smask = F.interpolate(smask.unsqueeze(0).unsqueeze(0).float(), ref_imgs.size()[-2:], mode='nearest').squeeze()
-            ref_masks_tmp.append(smask)
-        ref_masks = torch.stack(ref_masks_tmp)
 
         batch = {'tgt_img': tgt_img,
-                 'tgt_mask': tgt_mask,
+                 'tgt_mask': tgt_mask.float(),
                  'ref_imgs': ref_imgs,
                  'ref_masks': ref_masks,
                  'class_id': torch.tensor(class_sample)}
@@ -100,7 +89,5 @@ class DatasetISIC(Dataset):
     
 
 def build(args) -> DatasetISIC:
-    transform = build_transform(args.image_size)
-    dataset = DatasetISIC(datapath=args.data_root, transform=transform,
-                 shot=args.shots)
+    dataset = DatasetISIC(datapath=args.data_root, shot=args.shots)
     return dataset

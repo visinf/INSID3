@@ -6,13 +6,11 @@ import os
 import torch
 import PIL.Image as Image
 import numpy as np
-from utils.data import build_transform
 from torch.utils.data import Dataset
-import torch.nn.functional as F
 
 
 class DatasetISAID(Dataset):
-    def __init__(self, datapath: str, fold: int, transform, shot: int) -> None:
+    def __init__(self, datapath: str, fold: int, shot: int) -> None:
         self.split = 'val'
         self.fold = fold
         self.nfolds = 3
@@ -23,8 +21,6 @@ class DatasetISAID(Dataset):
         self.datapath = datapath
         self.img_path = os.path.join(datapath, 'val/images')
         self.ann_path = os.path.join(datapath, 'val/semantic_png')
-
-        self.transform = transform
 
         self.class_ids = self.build_class_ids()
         self.img_metadata = self.build_img_metadata()
@@ -78,21 +74,12 @@ class DatasetISAID(Dataset):
         tgt_name, ref_names, class_sample = self.sample_episode(idx)
         tgt_img, tgt_cmask, ref_imgs, ref_cmasks, org_tgt_imsize = self.load_frame(tgt_name, ref_names)
 
-        tgt_img = self.transform(tgt_img)
-        tgt_cmask = F.interpolate(tgt_cmask.unsqueeze(0).unsqueeze(0).float(), tgt_img.size()[-2:], mode='nearest').squeeze()
         tgt_mask, tgt_ignore_idx = self.extract_ignore_idx(tgt_cmask.float(), class_sample)
 
-        ref_imgs = torch.stack([self.transform(ref_img) for ref_img in ref_imgs])
-
         ref_masks = []
-        ref_ignore_idxs = []
         for scmask in ref_cmasks:
-            scmask = F.interpolate(scmask.unsqueeze(0).unsqueeze(0).float(), ref_imgs.size()[-2:], mode='nearest').squeeze()
-            ref_mask, ref_ignore_idx = self.extract_ignore_idx(scmask, class_sample)
+            ref_mask, _ = self.extract_ignore_idx(scmask.float(), class_sample)
             ref_masks.append(ref_mask)
-            ref_ignore_idxs.append(ref_ignore_idx)
-        ref_masks = torch.stack(ref_masks)
-        ref_ignore_idxs = torch.stack(ref_ignore_idxs)
 
         batch = {'tgt_img': tgt_img,
                  'tgt_mask': tgt_mask,
@@ -126,7 +113,6 @@ class DatasetISAID(Dataset):
 
 
 def build(args) -> DatasetISAID:
-    transform = build_transform(args.image_size)
     dataset = DatasetISAID(datapath=os.path.join(args.data_root, 'iSAID'), fold=args.fold,
-                           transform=transform, shot=args.shots)
+                           shot=args.shots)
     return dataset

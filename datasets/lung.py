@@ -5,15 +5,13 @@ import os
 import glob
 from os.path import join
 from torch.utils.data import Dataset
-import torch.nn.functional as F
 import torch
 import PIL.Image as Image
 import numpy as np
-from utils.data import build_transform
 
 
 class DatasetLung(Dataset):
-    def __init__(self, datapath: str, transform, shot: int, num: int = 600):
+    def __init__(self, datapath: str, shot: int, num: int = 600):
         self.split = 'test'
         self.nclass = 1
         self.benchmark = 'lung'
@@ -23,7 +21,6 @@ class DatasetLung(Dataset):
         self.base_path = join(datapath, 'LungSegmentation')
         self.img_path = join(self.base_path, 'CXR_png')
         self.ann_path = join(self.base_path, 'masks')
-        self.transform = transform
 
         self.categories = ['1']
 
@@ -36,17 +33,9 @@ class DatasetLung(Dataset):
     def __getitem__(self, idx: int) -> dict:
         tgt_name, ref_names, class_sample = self.sample_episode(idx)
         tgt_img, tgt_mask, ref_imgs, ref_masks = self.load_frame(tgt_name, ref_names)
-        tgt_img = self.transform(tgt_img)
-        tgt_mask = F.interpolate(tgt_mask.unsqueeze(0).unsqueeze(0).float(), tgt_img.size()[-2:], mode='nearest').squeeze()
-        ref_imgs = torch.stack([self.transform(ref_img) for ref_img in ref_imgs])
-        ref_masks_tmp = []
-        for smask in ref_masks:
-            smask = F.interpolate(smask.unsqueeze(0).unsqueeze(0).float(), ref_imgs.size()[-2:], mode='nearest').squeeze()
-            ref_masks_tmp.append(smask)
-        ref_masks = torch.stack(ref_masks_tmp)
 
         batch = {'tgt_img': tgt_img,
-                 'tgt_mask': tgt_mask,
+                 'tgt_mask': tgt_mask.float(),
                  'ref_imgs': ref_imgs,
                  'ref_masks': ref_masks,
                  'class_id': torch.tensor(class_sample)}
@@ -107,7 +96,5 @@ class DatasetLung(Dataset):
     
 
 def build(args) -> DatasetLung:
-    transform = build_transform(args.image_size)
-    dataset = DatasetLung(datapath=args.data_root, transform=transform,
-                 shot=args.shots)
+    dataset = DatasetLung(datapath=args.data_root, shot=args.shots)
     return dataset

@@ -2,20 +2,16 @@
 import os
 
 from torch.utils.data import Dataset
-import torch.nn.functional as F
 import torch
 import numpy as np
-from utils.data import build_transform
 from tqdm import tqdm
 from PIL import Image
 
 
 class DatasetPerMis(Dataset):
-    def __init__(self, datapath: str, transform, shot: int):
+    def __init__(self, datapath: str, shot: int):
         self.benchmark = 'permis'
         self.shot = shot
-
-        self.transform = transform
 
         self.episodes = []
         for vid_id in tqdm(os.listdir(datapath)):
@@ -47,19 +43,8 @@ class DatasetPerMis(Dataset):
         ref_imgs, ref_masks = episode["supp_img"], episode["supp_mask"]
         tgt_img, tgt_mask = episode["tgt_img"], episode["tgt_mask"]
 
-        tgt_img = self.transform(tgt_img)
-        tgt_mask = F.interpolate(tgt_mask.unsqueeze(0).unsqueeze(0).float(), tgt_img.size()[-2:], mode='nearest').squeeze()
-
-        ref_imgs = torch.stack([self.transform(ref_img) for ref_img in ref_imgs])
-
-        ref_masks_tmp = []
-        for smask in ref_masks:
-            smask = F.interpolate(smask.unsqueeze(0).unsqueeze(0).float(), ref_imgs.size()[-2:], mode='nearest').squeeze()
-            ref_masks_tmp.append(smask)
-        ref_masks = torch.stack(ref_masks_tmp)
-
         batch = {'tgt_img': tgt_img,
-                 'tgt_mask': tgt_mask,
+                 'tgt_mask': tgt_mask.float(),
                  'ref_imgs': ref_imgs,
                  'ref_masks': ref_masks,
                  'class_id': torch.tensor(0)
@@ -70,7 +55,6 @@ class DatasetPerMis(Dataset):
 
 
 def build(args) -> DatasetPerMis:
-    transform = build_transform(args.image_size)
     dataset = DatasetPerMis(datapath=os.path.join(args.data_root, 'PerMIRS'),
-                            transform=transform, shot=args.shots)
+                            shot=args.shots)
     return dataset

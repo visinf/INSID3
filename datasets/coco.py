@@ -3,9 +3,7 @@ from __future__ import annotations
 
 import os
 import pickle
-from utils.data import build_transform
 from torch.utils.data import Dataset
-import torch.nn.functional as F
 import torch
 import PIL.Image as Image
 import numpy as np
@@ -13,7 +11,7 @@ from os.path import join
 
 
 class DatasetCOCO(Dataset):
-    def __init__(self, datapath: str, fold: int, transform, shot: int):
+    def __init__(self, datapath: str, fold: int, shot: int):
         self.split = 'val'
         self.fold = fold
         self.nfolds = 4
@@ -23,7 +21,6 @@ class DatasetCOCO(Dataset):
         self.shot = shot
         self.split_coco = 'train2014'
         self.base_path = join(datapath, 'COCO2014')
-        self.transform = transform
 
         self.class_ids = self.build_class_ids()
         self.img_metadata_classwise = self.build_img_metadata_classwise()
@@ -35,17 +32,8 @@ class DatasetCOCO(Dataset):
     def __getitem__(self, idx: int) -> dict:
         tgt_img, tgt_mask, ref_imgs, ref_masks, class_sample = self.load_frame()
 
-        tgt_img = self.transform(tgt_img)
-
-        tgt_mask = F.interpolate(tgt_mask.unsqueeze(0).unsqueeze(0).float(), tgt_img.size()[-2:], mode='nearest').squeeze()
-
-        ref_imgs = torch.stack([self.transform(ref_img) for ref_img in ref_imgs])
-        for midx, smask in enumerate(ref_masks):
-            ref_masks[midx] = F.interpolate(smask.unsqueeze(0).unsqueeze(0).float(), ref_imgs.size()[-2:], mode='nearest').squeeze()
-        ref_masks = torch.stack(ref_masks)
-
         batch = {'tgt_img': tgt_img,
-                 'tgt_mask': tgt_mask,
+                 'tgt_mask': tgt_mask.float(),
                  'ref_imgs': ref_imgs,
                  'ref_masks': ref_masks,
                  'class_id': torch.tensor(class_sample)
@@ -118,6 +106,5 @@ class DatasetCOCO(Dataset):
 
 
 def build(args) -> DatasetCOCO:
-    transform = build_transform(args.image_size)
-    dataset = DatasetCOCO(datapath=args.data_root, fold=args.fold, transform=transform, shot=args.shots)
+    dataset = DatasetCOCO(datapath=args.data_root, fold=args.fold, shot=args.shots)
     return dataset

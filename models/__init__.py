@@ -33,6 +33,7 @@ def build_insid3(
     tau: float = 0.6,
     merge_threshold: float = 0.2,
     mask_refiner: str = "bilinear",
+    resize_to_orig_size: bool = True,
     device: str = "cuda",
 ):
     encoder = _build_encoder(model_size)
@@ -43,6 +44,7 @@ def build_insid3(
         tau=tau,
         merge_threshold=merge_threshold,
         mask_refiner=mask_refiner,
+        resize_to_orig_size=resize_to_orig_size,
         device=device,
     )
     for param in model.parameters():
@@ -58,5 +60,6 @@ def build_insid3_from_args(args):
         tau=args.tau,
         merge_threshold=args.merge_thresh,
         mask_refiner='crf' if getattr(args, 'crf_mask_refinement', False) else 'bilinear',
+        resize_to_orig_size=False,
         device=args.device,
     )
