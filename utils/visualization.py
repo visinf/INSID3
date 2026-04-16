@@ -51,11 +51,12 @@ def visualize_prediction(
     reference_mask: str | Path | Image.Image | np.ndarray | torch.Tensor,
     target_image: str | Path | Image.Image,
     predicted_mask: str | Path | Image.Image | np.ndarray | torch.Tensor,
-    output_path: str | Path,
+    output_path: str | Path | None = None,
     *,
     alpha: float = 0.45,
+    visualize: bool = False,
 ) -> None:
-    """Save a visualization of the reference and target segmentation."""
+    """Save or show a visualization of the reference and target segmentation."""
     reference_pil = _load_image(reference_image)
     target_pil = _load_image(target_image)
 
@@ -68,9 +69,6 @@ def visualize_prediction(
     reference_overlay = _overlay_mask(reference_np, reference_mask_np, color=(0.95, 0.25, 0.2), alpha=alpha)
     target_overlay = _overlay_mask(target_np, predicted_mask_np, color=(0.15, 0.8, 0.35), alpha=alpha)
 
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
     fig, axes = plt.subplots(1, 2, figsize=(12, 6), constrained_layout=True)
     axes[0].imshow(reference_overlay)
     axes[0].set_title("Reference + Mask")
@@ -80,5 +78,15 @@ def visualize_prediction(
     for axis in axes:
         axis.axis("off")
 
+    if visualize:
+        plt.show()
+        plt.close(fig)
+        return
+
+    if output_path is None:
+        raise ValueError("output_path must be provided when visualize is False")
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, dpi=200, bbox_inches="tight")
     plt.close(fig)

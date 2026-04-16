@@ -4,8 +4,12 @@
 
 <p align="center">
   <a href="https://arxiv.org/abs/2603.28480"><img src="https://img.shields.io/badge/Paper-arXiv-red?style=flat-square&labelColor=444444" alt="Paper arXiv"></a>
-  <a href=https://visinf.github.io/INSID3/><img src="https://img.shields.io/badge/Project-Page-1f6feb?style=flat-square&labelColor=444444" alt="Project Page"></a>
+  <a href="https://visinf.github.io/INSID3/"><img src="https://img.shields.io/badge/Project-Page-1f6feb?style=flat-square&labelColor=444444" alt="Project Page"></a>
+  <a href="https://colab.research.google.com/drive/1zCEqTS6lIbfaV3peNO5-m3U3FC8N2wNk?usp=sharing"><img src="https://img.shields.io/badge/Notebook-Colab-F9AB00?style=flat-square&labelColor=444444" alt="Open in Colab"></a>
 </p>
+
+✨ **CVPR 2026 Oral** ✨
+
 
 **[Claudia Cuttano](https://scholar.google.com/citations?user=W7lNKNsAAAAJ)<sup>1,2</sup> ·
 [Gabriele Trivigno](https://scholar.google.com/citations?user=JXf_iToAAAAJ)<sup>1</sup> ·
@@ -21,7 +25,6 @@
 <sup>5</sup> ELIZA &nbsp;&nbsp; 
 <sup>6</sup> MCML  
 
-✨ **CVPR 2026 ORAL** ✨
 
 </div>
 
@@ -100,7 +103,7 @@ By default, we use the Large model (```dinov3_vitl16_pretrain_lvd1689m-8aa4cbdd.
 
 ## 📍 Minimal Usage
 
-Here is a minimal example to segment a target image given a reference image and its mask. 
+Here is a minimal example to segment a target image given a reference image and its mask. You can also try MARCO directly in our [Colab Demo](https://colab.research.google.com/drive/1zCEqTS6lIbfaV3peNO5-m3U3FC8N2wNk?usp=sharing) on your own images ✨
 
 ```python
 from models import build_insid3
@@ -130,7 +133,8 @@ visualize_prediction(
 )
 ```
 
-To refine the predicted mask with CRF, initialize the model with: `model = build_insid3(mask_refiner="crf")`.
+To refine the predicted mask with CRF, initialize the model with: `model = build_insid3(mask_refiner="crf")`.  
+For faster inference, you can reduce the input image size. The default is `1024`, but using a smaller value substantially improves speed with only a minor performance drop, e.g. `model = build_insid3(image_size=768)`.
 
 ## 📦 Data
 
@@ -148,9 +152,8 @@ python inference.py --dataset coco --exp-name insid3-coco
 
 - `--dataset`: supported [`coco`, `lvis`, `pascal_part`, `paco_part`, `isaid`, `isic`, `lung`, `suim`, `permis`]
 - `--model_size`: DINOv3 backbone size (`small`, `base`, `large`, default: `large`)
-
 - `--shots`: number of reference images per episode (e.g., 1-shot, 5-shot, default: 1)
-
+- `--image-size`: input image resolution (default: `1024`). Reducing it can substantially speed up inference with minimal drop in performance; for example, `--image-size 768`
 
 - Other args: hyperparameters (e.g., `--tau`, `--merge-thresh`, `--svd-comps`) have default values as in the paper; pass them to override the defaults. See `opts.py`.
 
@@ -166,7 +169,7 @@ INSID3 builds on two key observations about DINOv3 features.
 (i) **Dense DINOv3 features** naturally induce a **structured decomposition of the scene**. By clustering them, we obtain coherent object- and part-level regions without supervision.
 
 <p align="center">
-  <img src="assets/clustering.png" alt="Dense DINOv3 features" width="80%">
+  <img src="assets/clustering.png" alt="Dense DINOv3 features" width="99%">
 </p>
 
 
