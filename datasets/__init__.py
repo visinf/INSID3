@@ -9,6 +9,7 @@ from .paco_part import build as build_paco_part
 from .suim import build as build_suim
 from .isaid import build as build_isaid
 from .permis import build as build_permis
+from .spair import build as build_spair
 
 _BUILDERS = {
     'coco': build_coco,
@@ -20,6 +21,7 @@ _BUILDERS = {
     'suim': build_suim,
     'isaid': build_isaid,
     'permis': build_permis,
+    'spair': build_spair,
 }
 
 

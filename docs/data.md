@@ -1,5 +1,8 @@
 # Data Preparation
 
+We provide instructions to set up the evaluation for **in-context segmentation** and **semantic correspondence**.
+
+## 🚀 In-Context Segmentation
 
 Our setup follows [Matcher](https://github.com/aim-uofa/Matcher), [GF-SAM](https://github.com/ANDYZAQ/GF-SAM), [DR-Adapter](https://github.com/Matt-Su/DR-Adapter), [ABCDFSS](https://github.com/Vision-Kek/ABCDFSS) and [Where's Waldo](https://github.com/dvirsamuel/PDM).  
 Create a directory `data/` to store all datasets.
@@ -69,7 +72,7 @@ INSID3/
 ## Instructions
 
 Run all commands below from the `INSID3/data/` directory.  
-Some datasets require `gdown` for Google Drive downloads (`pip install gdown`). 
+Some datasets require `gdown` for Google Drive downloads (`pip install gdown==5.2.0`). 
 
 ### 🥥 COCO-20<sup>i</sup>
 
@@ -241,7 +244,7 @@ unzip splits.zip
 rm -rf *.zip iSAID_patches
 cd ..
 ```
-This should results in 6363 images  (`val/images/`) and 6363 masks (`val/semantic_png/`).
+This should result in 6363 images  (`val/images/`) and 6363 masks (`val/semantic_png/`).
 
 ### 🎯 PerMIS
 
@@ -270,3 +273,27 @@ cd ..
  ```
 
 This should result in 216 folders, each containing 3 frames and a `masks.npz` file.
+
+## 🧹 SPair-71k (semantic correspondence analysis)
+
+As an analysis, we evaluate the effect of positional debiasing on **semantic correspondence** using **SPair-71k**.   
+After preparation, we expect the following structure:
+
+```text
+data/
+├── SPair-71k/
+│   ├── JPEGImages/{category}/*.jpg
+│   ├── PairAnnotation/{split}/*.json
+│   ├── ImageAnnotation/{category}/*.json
+│   └── Layout/large/{trn,test}.txt
+ ```
+
+Download and extract the dataset with:
+
+```bash
+mkdir -p SPair-71k && cd SPair-71k
+wget https://cvlab.postech.ac.kr/research/SPair-71k/data/SPair-71k.tar.gz
+tar -xzf SPair-71k.tar.gz --strip-components=1
+rm -f SPair-71k.tar.gz
+cd ..
+ ```

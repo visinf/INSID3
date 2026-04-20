@@ -39,6 +39,12 @@ INSID3 solves in-context segmentation entirely within a single frozen DINOv3 bac
   <img src="assets/teaser.png">
 </p>
 
+## 🔥 News
+
+- **[2026/04/21]** Added support for semantic correspondence inference.
+- **[2026/04/16]** Released the [Colab demo](https://colab.research.google.com/drive/1zCEqTS6lIbfaV3peNO5-m3U3FC8N2wNk?usp=sharing) to try INSID3 on your own images.
+- **[2026/04/09]** INSID3 is selected for Oral presentation at CVPR 2026.
+- **[2026/03/29]** Paper and code are released.
 
 ## ⚙️ Environment Setup
 
@@ -107,8 +113,8 @@ Here is a minimal example to segment a target image given a reference image and 
 
 ```python
 from models import build_insid3
-from utils.visualization import visualize_prediction
-
+from utils.visualization import visualize_prediction_segmentation as visualize
+ 
 ref_image_path, ref_mask_path = "assets/ref_cat_image.jpg", "assets/ref_cat_mask.png"
 target_image_path = "assets/target_cat_image.jpg"
 output_path = "target_cat_pred.png"
@@ -124,7 +130,7 @@ model.set_target(target_image_path)
 pred_mask = model.segment() 
 
 # Save visualization
-visualize_prediction(
+visualize(
   ref_image_path,
   ref_mask_path,
   target_image_path,
@@ -134,26 +140,26 @@ visualize_prediction(
 ```
 
 To refine the predicted mask with CRF, initialize the model with: `model = build_insid3(mask_refiner="crf")`.  
-For faster inference, you can reduce the input image size. The default is `1024`, but using a smaller value substantially improves speed with only a minor performance drop, e.g. `model = build_insid3(image_size=768)`.
+For faster inference, reduce the input image size (default is `1024`): a smaller value substantially increases speed with a minor performance drop, e.g. `model = build_insid3(image_size=768)`.
 
 ## 📦 Data
 
 Please refer to [docs/data.md](docs/data.md) for dataset preparation instructions.
 
-## 🚀 Inference
+## 🚀 In-Context Segmentation Inference
 
 Evaluate INSID3:
 
 ```bash
-python inference.py --dataset coco --exp-name insid3-coco
+python inference_segmentation.py --dataset coco --exp-name insid3-coco
 ```
 
 #### Main arguments:
 
 - `--dataset`: supported [`coco`, `lvis`, `pascal_part`, `paco_part`, `isaid`, `isic`, `lung`, `suim`, `permis`]
-- `--model_size`: DINOv3 backbone size (`small`, `base`, `large`, default: `large`)
+- `--model-size`: DINOv3 backbone size (`small`, `base`, `large`, default: `large`)
 - `--shots`: number of reference images per episode (e.g., 1-shot, 5-shot, default: 1)
-- `--image-size`: input image resolution (default: `1024`). Reducing it can substantially speed up inference with minimal drop in performance; for example, `--image-size 768`
+- `--image-size`: input image resolution (default: `1024`). Reducing it can substantially speed up inference with minimal drop in performance (e.g., `--image-size 768`)
 
 - Other args: hyperparameters (e.g., `--tau`, `--merge-thresh`, `--svd-comps`) have default values as in the paper; pass them to override the defaults. See `opts.py`.
 
@@ -161,6 +167,88 @@ python inference.py --dataset coco --exp-name insid3-coco
 
 **Note:** By default, the predicted mask is upsampled to the original image resolution using **bilinear interpolation**. For additional refinement, enable **CRF-based refinement** with `--crf-mask-refinement`.
  
+## 🧹 Semantic Correspondence
+
+We also analyze the effect of our positional debiasing on **semantic correspondence** using **SPair-71k**. 
+
+
+<table>
+  <thead>
+    <tr>
+      <th align="left">Version</th>
+      <th align="center">PCK@0.05</th>
+      <th align="center">PCK@0.10</th>
+      <th align="center">PCK@0.15</th>
+      <th align="center">PCK@0.20</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="left">DINOv3-Base-original</td>
+      <td align="center">30.1</td>
+      <td align="center">46.8</td>
+      <td align="center">55.6</td>
+      <td align="center">61.2</td>
+    </tr>
+    <tr>
+      <td align="left">DINOv3-Base-debiased</td>
+      <td align="center">33.7</td>
+      <td align="center">52.6</td>
+      <td align="center">62.5</td>
+      <td align="center">68.7</td>
+    </tr>
+  </tbody>
+</table>
+
+This provides a simple comparison between the original **DINOv3** features and their **debiased** version for cross-image semantic matching.
+
+To compare the original and debiased features, run:
+
+```bash
+python inference_keypoint_matching.py --debiased --image-size 768 --model-size base --svd-comps 20
+```
+Main arguments:  
+- `--debiased`: use positionally debiased DINOv3 features
+- `--model-size`: DINOv3 backbone size (`small`, `base`, `large`, default: `large`)
+- `--svd-comps`: number of SVD components for positional debiasing
+
+You can also try **semantic correspondence on your own images** by providing a reference image, one or more reference points, and a target image:
+
+```python
+from models import build_insid3
+from utils.visualization import visualize_prediction_matching as visualize
+ 
+ref_image_path = "assets/ref_boat.jpg"
+ref_kps = [[417, 180]] 
+target_image_path = "assets/target_boat.jpg"
+output_path = "target_boat_pred.png"
+
+# Build model
+model = build_insid3(model_size='base', svd_components=20)
+
+# Set reference and target
+model.set_reference(ref_image_path)
+model.set_target(target_image_path)
+
+# Predict
+pred_mask = model.match(ref_kps)  
+
+# Save visualization
+visualize(
+  ref_image_path,
+  ref_kps,
+  target_image_path,
+  pred_mask,
+  output_path,
+)
+```
+
+An example output is shown below:
+
+
+| Original DINOv3 | Debiased DINOv3 |
+|---------|---------|
+| ![Original DINOv3](assets/original_dinov3_pred.png) | ![Debiased DINOv3](assets/debiased_dinov3_pred.png) |
 
 ## 💡 Why INSID3 Works
 

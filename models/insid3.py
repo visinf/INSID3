@@ -6,13 +6,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import einops
+import math
+from PIL import Image
 
 from utils.clustering import agglomerative_clustering, compute_cluster_prototypes
-from utils.data import build_transform, downsample_mask
+from utils.data import build_transform, downsample_mask, load_image, load_mask
+from utils.keypoints import kernel_softargmax_get_matches_logits, rescale_points
 from utils.refinement import upsample_mask, init_crf, crf_refine
-import math
-
-from PIL import Image
 
 
 class INSID3(nn.Module):
@@ -31,6 +31,7 @@ class INSID3(nn.Module):
     ):
         super().__init__()
         self.encoder = encoder
+        self.device = device
         self.image_size = image_size
         self.svd_components = svd_components
         self.tau = tau
@@ -38,46 +39,38 @@ class INSID3(nn.Module):
         self.mask_refiner = mask_refiner
         self.resize_to_orig_size = resize_to_orig_size
 
-        self.positional_basis = self._build_positional_basis(device)
+        self.positional_basis = self._build_positional_basis(self.device)
 
         if mask_refiner == 'crf':
-            self._crf, self._crf_band_px, self._crf_p_core = init_crf(image_size, device)
+            self._crf, self._crf_band_px, self._crf_p_core = init_crf(image_size, self.device)
 
         self._transform = build_transform(image_size)
+        self.reset_state()
+
+    def reset_state(self) -> None:
+        """Clear cached reference/target inputs and their original sizes."""
         self._ref_images = None
         self._ref_masks = None
         self._tgt_image = None
         self._orig_tgt_size = None
+        self._orig_ref_size = None
 
-    def set_reference(self, image: str | 'Image.Image', mask: str | 'Image.Image' | torch.Tensor) -> None:
-        """Set reference image and mask from file paths or PIL Images.
+    # ──────── State setup ────────
+
+    def set_reference(self, image: str | Image.Image | torch.Tensor,
+                      mask: str | Image.Image | torch.Tensor | None = None) -> None:
+        """Set reference image and optional mask from file paths, PIL Images, or tensors.
 
         Args:
-            image: path (str) or PIL Image.
-            mask:  path (str), PIL Image, or torch.Tensor (binary / grayscale).
+            image: path (str), PIL Image, or tensor (*,C,H,W) normalized as the model expects.
+            mask: path (str), PIL Image, tensor (*, H, W), or None for matching-only use.
         """
-        import numpy as np
-        # Handle image
-        if isinstance(image, str):
-            image = Image.open(image).convert('RGB')
-        img_tensor = self._transform(image).unsqueeze(0).to(self.positional_basis.device)
-        # Handle mask
-        if isinstance(mask, torch.Tensor):
-            mask_tensor = mask.unsqueeze(0) if mask.ndim == 2 else mask  # (H,W) or (1,H,W)
-            mask_tensor = mask_tensor.to(self.positional_basis.device)
-            if mask_tensor.dtype != torch.bool:
-                mask_tensor = mask_tensor > 0
-        else:
-            if isinstance(mask, str):
-                mask = Image.open(mask)
-            mask_tensor = torch.tensor(
-                np.array(mask) > 0, dtype=torch.bool
-            ).unsqueeze(0).to(self.positional_basis.device)
-        # Resize mask to model resolution
-        mask_tensor = F.interpolate(
-            mask_tensor.unsqueeze(0).float(),
-            size=(self.image_size, self.image_size), mode='nearest',
-        ).squeeze(0) > 0.5
+        img_tensor, self._orig_ref_size = load_image(image, self._transform, self.device)
+
+        mask_tensor = None
+        if mask is not None:
+            mask_tensor = load_mask(mask, self.image_size, self.device)
+
         if self._ref_images is None:
             self._ref_images = img_tensor
             self._ref_masks = mask_tensor
@@ -85,46 +78,54 @@ class INSID3(nn.Module):
             self._ref_images = torch.cat([self._ref_images, img_tensor], dim=0)
             self._ref_masks = torch.cat([self._ref_masks, mask_tensor], dim=0)
 
-    def set_target(self, image: str | 'Image.Image') -> None:
-        """Set target image from a file path or PIL Image.
-
-        Args:
-            image: path (str) or PIL Image.
-        """
-        if isinstance(image, str):
-            image = Image.open(image).convert('RGB')
-        self._orig_tgt_size = (image.height, image.width)
-        img_tensor = self._transform(image).to(self.positional_basis.device)
+    def set_target(self, image: str | Image.Image | torch.Tensor) -> None:
+        """Set target image from a file path, PIL Image, or tensor."""
+        img_tensor, self._orig_tgt_size = load_image(image, self._transform, self.device)
         self._tgt_image = img_tensor
+
+    # ──────── Public API ────────
 
     def segment(self) -> torch.Tensor:
         """Run prediction using previously set reference(s) and target.
 
         Returns:
-            pred_mask: (H, W) boolean mask at original target resolution.
+            pred_mask: (H, W) boolean mask.
         """
-        pred = self.predict(self._ref_images, self._ref_masks, self._tgt_image)
-        self._ref_images = None
-        self._ref_masks = None
-        self._tgt_image = None
-        self._orig_tgt_size = None
+        if self._ref_images is None or self._ref_masks is None or self._tgt_image is None:
+            raise RuntimeError('segment() requires reference image(s), reference mask(s), and a target image.')
+        pred = self.predict_mask(self._ref_images, self._ref_masks, self._tgt_image)
+        
+        self.reset_state()
         return pred
+    
+    def match(self, src_kps: torch.Tensor, use_debiased: bool = True) -> torch.Tensor:
+        """Match source keypoints using previously set reference and target.
+        
+        Returns:
+            pred_kps: (N, 2) predicted keypoint coordinates in the target image.
+        """
+        if self._ref_images is None or self._tgt_image is None:
+            raise RuntimeError('match() requires a reference image and a target image.')
+        pred = self.predict_keypoint(self._ref_images, src_kps, self._tgt_image, use_debiased=use_debiased)
 
+        self.reset_state()
+        return pred
+    
+    # ──────── Inference: segmentation ────────
 
     @torch.no_grad()
-    def predict(self, ref_images: torch.Tensor, ref_masks: torch.Tensor, tgt_image: torch.Tensor) -> torch.Tensor:
+    def predict_mask(self, ref_images: torch.Tensor, ref_masks: torch.Tensor, tgt_image: torch.Tensor) -> torch.Tensor:
         """Segment the target image given reference image(s) and mask(s).
 
         Args:
             ref_images: (S, C, H, W) reference image(s).
             ref_masks:  (S, H, W) binary reference mask(s).
-            tgt_image:  (C, H, W) target image.
+            tgt_image:  (1, C, H, W) target image.
 
         Returns:
-            pred_mask: (H, W) boolean mask at input resolution.
+            pred_mask: (H, W) boolean mask.
         """
         S = ref_images.shape[0]
-        tgt_image = tgt_image.unsqueeze(0)  # (C, H, W) → (1, C, H, W)
         imgs = torch.cat([ref_images, tgt_image], dim=0).unsqueeze(0)
 
         # Feature extraction
@@ -182,6 +183,45 @@ class INSID3(nn.Module):
 
         return self._finalize_mask(pred_mask, tgt_image)
 
+    # ──────── Inference: semantic correspondence ────────
+
+    @torch.no_grad()
+    def predict_keypoint(self, ref_image: torch.Tensor, ref_kps: torch.Tensor, tgt_image: torch.Tensor, use_debiased: bool = False) -> torch.Tensor:
+        """Predict target keypoints given a reference image and keypoints.
+
+        Args:
+            ref_image: (1, C, H, W) reference image.
+            ref_kps: (K, 2) reference keypoints in original reference-image pixels.
+            tgt_image: (1, C, H, W) target image.
+            use_debiased: Whether to use debiased features for matching.
+
+        Returns:
+            pred_keypoints: (K, 2) predicted target keypoints in original target-image pixels.
+        """
+
+        if not isinstance(ref_kps, torch.Tensor):
+            ref_kps = torch.tensor(ref_kps, dtype=torch.float32, device=tgt_image.device)
+        else:
+            ref_kps = ref_kps.to(tgt_image.device).float()
+
+        imgs = torch.cat([ref_image, tgt_image], dim=0).unsqueeze(0)
+        fmaps_norm = F.normalize(self._extract_features(imgs), p=2, dim=2)
+        if use_debiased:
+            fmaps_norm = self._debias_features(fmaps_norm)
+
+        feat_ref = fmaps_norm[0, 0]
+        feat_tgt = fmaps_norm[0, 1]
+        _, h, w = feat_ref.shape
+
+        src_kps_feat = rescale_points(ref_kps, self._orig_ref_size, (h, w))
+        src_xy = src_kps_feat.round().long()
+        src_x = src_xy[..., 0].clamp_(0, w - 1)
+        src_y = src_xy[..., 1].clamp_(0, h - 1)
+        src_desc = feat_ref[:, src_y, src_x].transpose(0, 1)
+        sim_map = (src_desc @ feat_tgt.flatten(1)).view(1, -1, h, w)
+        matches = kernel_softargmax_get_matches_logits(sim_map, 0.04, 7)
+        return rescale_points(matches, (h, w), self._orig_tgt_size)[0]
+    
     # ──────── Feature extraction ────────
 
     def _extract_features(self, imgs: torch.Tensor) -> torch.Tensor:

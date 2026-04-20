@@ -1,4 +1,4 @@
-"""INSID3 inference script."""
+"""In-context segmentation inference script with INSID3."""
 
 import argparse
 import datetime
@@ -66,8 +66,6 @@ def evaluate(args: argparse.Namespace, model: torch.nn.Module, log_file: str) ->
         tgt_mask = batch['tgt_mask']    # tensor
 
         # Set all references
-        model._ref_images = None  # Ensure reset
-        model._ref_masks = None
         for i in range(len(ref_imgs)):
             model.set_reference(ref_imgs[i], ref_masks[i])
         # Set target
@@ -100,7 +98,10 @@ def evaluate(args: argparse.Namespace, model: torch.nn.Module, log_file: str) ->
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('INSID3 inference', parents=[opts.get_args_parser()])
+    parser = argparse.ArgumentParser(
+        'INSID3 inference on in-context segmentation',
+        parents=[opts.get_args_parser()],
+    )
     args = parser.parse_args()
     timestamp = datetime.datetime.now().strftime('%m%d_%H%M')
     args.output_dir = join(args.output_dir, f'{args.exp_name}_{timestamp}')
