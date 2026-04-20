@@ -41,7 +41,7 @@ INSID3 solves in-context segmentation entirely within a single frozen DINOv3 bac
 
 ## 🔥 News
 
-- **[2026/04/21]** Added support for semantic correspondence inference.
+- **[2026/04/21]** Added support for Semantic Correspondence inference.
 - **[2026/04/16]** Released the [Colab demo](https://colab.research.google.com/drive/1zCEqTS6lIbfaV3peNO5-m3U3FC8N2wNk?usp=sharing) to try INSID3 on your own images.
 - **[2026/04/09]** INSID3 is selected for Oral presentation at CVPR 2026.
 - **[2026/03/29]** Paper and code are released.
@@ -146,7 +146,7 @@ For faster inference, reduce the input image size (default is `1024`): a smaller
 
 Please refer to [docs/data.md](docs/data.md) for dataset preparation instructions.
 
-## 🚀 In-Context Segmentation Inference
+## 🚀 In-Context Segmentation
 
 Evaluate INSID3:
 
