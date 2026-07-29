@@ -158,14 +158,8 @@ class INSID3(nn.Module):
         ).unsqueeze(1)
 
         # Candidate localization (forward + backward matching)
-        # Compute similarity maps between each reference and the target (debiased space)
-        sim_maps = []
-        for m in range(S):
-            feat_ref_m = feat_refs_deb[:, m]
-            sim_m = torch.einsum('bchw,bcxy->bhwxy', feat_ref_m, feat_tgt_deb)
-            sim_maps.append(sim_m)
         candidate_mask = self._locate_candidates(
-            sim_maps, ref_masks, feat_tgt_deb, ref_prototype, h, w
+            feat_refs_deb, ref_masks, feat_tgt_deb, ref_prototype, h, w
         )
         if candidate_mask.sum() == 0:
             return self._finalize_mask(candidate_mask, tgt_image)
@@ -274,7 +268,7 @@ class INSID3(nn.Module):
 
     def _locate_candidates(
         self,
-        sim_maps: list,
+        sim_maps: torch.Tensor,
         ref_masks: torch.Tensor,
         feat_tgt_deb: torch.Tensor,
         ref_prototype: torch.Tensor,
@@ -286,12 +280,18 @@ class INSID3(nn.Module):
         sim_fwd = torch.einsum('bchw,cd->bhw', feat_tgt_deb, ref_prototype).squeeze(0)
         forward_mask = sim_fwd > 0
         if forward_mask.sum() == 0:
-            forward_mask = sim_fwd > float(torch.quantile(sim_fwd, 0.9))
+            # quantile() rejects bf16 (autocast), so compute it in fp32.
+            forward_mask = sim_fwd > float(torch.quantile(sim_fwd.float(), 0.9))
 
         # Backward: majority-vote over nearest neighbours in each reference
-        k = len(sim_maps)
-        votes = torch.zeros((h, w), dtype=torch.int32, device=sim_maps[0].device)
-        for m, sim_m in enumerate(sim_maps):
+        S = sim_maps.shape[1]
+        votes = torch.zeros((h, w), dtype=torch.int32, device=feat_tgt_deb.device)
+        k = 0  # Number of references with a non-empty mask (i.e. that can cast a vote)
+        for m in range(S):
+            if ref_masks[m].max() == 0:
+                continue  # Empty mask (negative example): cannot vote, excluded from threshold
+            k += 1
+            sim_m = torch.einsum('bchw,bcxy->bhwxy', sim_maps[:, m], feat_tgt_deb)
             sim0 = sim_m[0]  # (Hs, Ws, h, w)
             Hs, Ws = sim0.shape[:2]
             sim_t_to_r = sim0.permute(2, 3, 0, 1)  # (h, w, Hs, Ws)
