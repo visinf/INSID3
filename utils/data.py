@@ -102,7 +102,7 @@ def denormalize(tens: torch.Tensor) -> torch.Tensor:
 def downsample_mask(mask: torch.Tensor, h: int, w: int) -> torch.Tensor:
     """Downsample a (1, 1, H, W) binary mask to feature resolution (h, w)."""
     down = F.interpolate(mask.float(), size=(h, w), mode='bilinear', align_corners=False)[0, 0] > 0.5
-    if down.sum() == 0:
+    if down.sum() == 0 and mask.any():  # an all-zero mask has no centre of mass
         down = F.interpolate(mask.float(), size=(h, w), mode='nearest')[0, 0] > 0.5
         if down.sum() == 0:
             center = torch.argwhere(mask[0, 0] > 0).float().mean(dim=0)

@@ -130,6 +130,19 @@ class INSID3(nn.Module):
         Returns:
             pred_mask: (H, W) boolean mask.
         """
+        # Drop references whose mask is empty at the model's input resolution.
+        # load_mask() resizes with nearest interpolation, so a thin or tiny object
+        # can vanish entirely. Such a reference marks no foreground: it cannot cast
+        # a backward vote, and downsample_mask() has no centre of mass to fall back
+        # on, so it must not reach prototype computation or candidate localization.
+        keep = ref_masks.flatten(1).any(dim=1)
+        n_keep = int(keep.sum())
+        if n_keep == 0:
+            # No reference foreground at all, so there is nothing to look for.
+            return self._empty_prediction(tgt_image)
+        if n_keep < ref_masks.shape[0]:
+            ref_images, ref_masks = ref_images[keep], ref_masks[keep]
+
         S = ref_images.shape[0]
         imgs = torch.cat([ref_images, tgt_image], dim=0).unsqueeze(0)
 
@@ -146,26 +159,19 @@ class INSID3(nn.Module):
         feat_refs_deb = fmaps_debiased[:, :S]
         feat_tgt_deb = fmaps_debiased[:, S]
 
-        # Reference prototype (averaged across shots)
+        # Reference prototype (averaged across shots). Every remaining mask is
+        # non-empty, so downsample_mask() yields at least one foreground patch.
         ref_prototypes = []
         for s in range(S):
             mask_s = downsample_mask(ref_masks[s:s+1], h, w)
-            fg = feat_refs_deb[0, s, :, mask_s]
-            if fg.shape[1] > 0:
-                ref_prototypes.append(fg.mean(dim=1))
+            ref_prototypes.append(feat_refs_deb[0, s, :, mask_s].mean(dim=1))
         ref_prototype = F.normalize(
             torch.stack(ref_prototypes).mean(dim=0), p=2, dim=0
         ).unsqueeze(1)
 
         # Candidate localization (forward + backward matching)
-        # Compute similarity maps between each reference and the target (debiased space)
-        sim_maps = []
-        for m in range(S):
-            feat_ref_m = feat_refs_deb[:, m]
-            sim_m = torch.einsum('bchw,bcxy->bhwxy', feat_ref_m, feat_tgt_deb)
-            sim_maps.append(sim_m)
         candidate_mask = self._locate_candidates(
-            sim_maps, ref_masks, feat_tgt_deb, ref_prototype, h, w
+            feat_refs_deb, ref_masks, feat_tgt_deb, ref_prototype, h, w
         )
         if candidate_mask.sum() == 0:
             return self._finalize_mask(candidate_mask, tgt_image)
@@ -274,7 +280,7 @@ class INSID3(nn.Module):
 
     def _locate_candidates(
         self,
-        sim_maps: list,
+        sim_maps: torch.Tensor,
         ref_masks: torch.Tensor,
         feat_tgt_deb: torch.Tensor,
         ref_prototype: torch.Tensor,
@@ -286,12 +292,18 @@ class INSID3(nn.Module):
         sim_fwd = torch.einsum('bchw,cd->bhw', feat_tgt_deb, ref_prototype).squeeze(0)
         forward_mask = sim_fwd > 0
         if forward_mask.sum() == 0:
-            forward_mask = sim_fwd > float(torch.quantile(sim_fwd, 0.9))
+            # quantile() rejects bf16 (autocast), so compare in fp32. Keeping the
+            # threshold as a 0-dim tensor avoids a device sync on the scalar.
+            sim_fwd_fp32 = sim_fwd.float()
+            forward_mask = sim_fwd_fp32 > torch.quantile(sim_fwd_fp32, 0.9)
 
-        # Backward: majority-vote over nearest neighbours in each reference
-        k = len(sim_maps)
-        votes = torch.zeros((h, w), dtype=torch.int32, device=sim_maps[0].device)
-        for m, sim_m in enumerate(sim_maps):
+        # Backward: majority-vote over nearest neighbours in each reference.
+        # predict_mask() has already dropped empty-mask references, so every
+        # reference here casts a vote and counts towards the majority threshold.
+        S = sim_maps.shape[1]
+        votes = torch.zeros((h, w), dtype=torch.int32, device=feat_tgt_deb.device)
+        for m in range(S):
+            sim_m = torch.einsum('bchw,bcxy->bhwxy', sim_maps[:, m], feat_tgt_deb)
             sim0 = sim_m[0]  # (Hs, Ws, h, w)
             Hs, Ws = sim0.shape[:2]
             sim_t_to_r = sim0.permute(2, 3, 0, 1)  # (h, w, Hs, Ws)
@@ -301,7 +313,7 @@ class INSID3(nn.Module):
             ref_mask_m = downsample_mask(ref_masks[m:m+1], Hs, Ws).squeeze(0)  # (Hs, Ws)
             votes += ref_mask_m[rows, cols].to(torch.int32)
 
-        majority_thresh = math.ceil(k / 2)
+        majority_thresh = math.ceil(S / 2)
         backward_mask = votes >= majority_thresh
 
         return forward_mask & backward_mask
@@ -364,6 +376,14 @@ class INSID3(nn.Module):
         return final_mask
 
     # ──────── Mask finalization ────────
+
+    def _empty_prediction(self, tgt_image: torch.Tensor) -> torch.Tensor:
+        """All-negative prediction, shaped like the output of _finalize_mask."""
+        if self.resize_to_orig_size:
+            H, W = self._orig_tgt_size
+        else:
+            H, W = tgt_image.shape[-2:]
+        return torch.zeros(H, W, dtype=torch.bool, device=tgt_image.device)
 
     def _finalize_mask(self, mask: torch.Tensor, tgt_image: torch.Tensor) -> torch.Tensor:
         """Upsample feature-resolution mask, optionally with CRF refinement."""
